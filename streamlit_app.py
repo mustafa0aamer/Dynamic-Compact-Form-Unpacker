@@ -98,13 +98,19 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
     lines.append(r"\vspace{0.5cm}")
     
     # --- 1. Intro & Sets ---
+    # --- 1. Intro & Sets ---
+    d_str = ', '.join(days)
+    m_str = ', '.join(techs)
+    k_str = ', '.join(teams)
+    i_str = ', '.join(tasks)
+    
     lines.append(r"\section*{1. Sets Definition}")
     lines.append(r"\begin{itemize}")
-    lines.append(rf"\item $D$ \textbf{{(Days):}} \{{{', '.join(days)}}}\}")
-    lines.append(rf"\item $M$ \textbf{{(Technicians):}} \{{{', '.join(techs)}}}\}")
-    lines.append(rf"\item $K$ \textbf{{(Teams):}} \{{{', '.join(teams)}}}\}")
-    lines.append(rf"\item $I'$ \textbf{{(Tasks):}} \{{{', '.join(tasks)}}}\}")
-    lines.append(rf"\item $I$ \textbf{{(All Nodes):}} \{{o, {', '.join(tasks)}, \bar{{o}}\}}")
+    lines.append(rf"\item $D$ \textbf{{(Days):}} \{{ {d_str} \}}")
+    lines.append(rf"\item $M$ \textbf{{(Technicians):}} \{{ {m_str} \}}")
+    lines.append(rf"\item $K$ \textbf{{(Teams):}} \{{ {k_str} \}}")
+    lines.append(rf"\item $I'$ \textbf{{(Tasks):}} \{{ {i_str} \}}")
+    lines.append(rf"\item $I$ \textbf{{(All Nodes):}} \{{ o, {i_str}, \bar{{o}} \}}")
     lines.append(rf"\item $Q$ \textbf{{(Skills):}} {num_skills} domains")
     lines.append(rf"\item $L$ \textbf{{(Proficiency):}} {num_levels} levels")
     lines.append(r"\end{itemize}")
