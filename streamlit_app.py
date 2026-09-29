@@ -9,8 +9,8 @@ import subprocess
 # 1. UI Configuration
 # ==========================================
 st.set_page_config(page_title="MPTRSP Model Generator", layout="wide")
-st.title("⚙️ MPTRSP: Dynamic Data & Equation Unpacker")
-st.markdown("Set dimensions below to generate data and create a beautifully formatted LaTeX/PDF report of your unpacked equations.")
+st.title("⚙️ MPTRSP: Ultimate Equation Unpacker")
+st.markdown("Generates a complete academic report matching your manual PDF, including all 18 constraints, sets, and equation counts.")
 
 # Sidebar - Dimensions
 st.sidebar.header("1. Problem Dimensions")
@@ -50,14 +50,12 @@ def generate_data():
         p_i = np.random.randint(1, 4)
         a_i = np.random.randint(int(shift_start), int(shift_end - p_i) + 1)
         b_i = a_i + np.random.randint(1, 4)
-        v_iql = {(q, l): np.random.choice([0, 1], p=[0.7, 0.3]) 
-                 for q in range(1, num_skills + 1) for l in range(1, num_levels + 1)}
+        v_iql = {(q, l): np.random.choice([0, 1], p=[0.7, 0.3]) for q in range(1, num_skills + 1) for l in range(1, num_levels + 1)}
         task_dict[i] = {"p": p_i, "a": a_i, "b": b_i, "v": v_iql}
 
     tech_dict = {}
     for m in techs:
-        g_mql = {(q, l): np.random.choice([0, 1], p=[0.4, 0.6]) 
-                 for q in range(1, num_skills + 1) for l in range(1, num_levels + 1)}
+        g_mql = {(q, l): np.random.choice([0, 1], p=[0.4, 0.6]) for q in range(1, num_skills + 1) for l in range(1, num_levels + 1)}
         tech_dict[m] = {"g": g_mql}
 
     coords = np.random.rand(len(nodes), 2) * 50
@@ -77,10 +75,18 @@ def generate_data():
     return tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat, c_mat
 
 # ==========================================
-# 3. LaTeX Equation Unpacker (Enhanced Format)
+# 3. LaTeX Equation Unpacker
 # ==========================================
+def chunk_equation(terms, n=4):
+    """Splits long equations into LaTeX multiline format"""
+    chunks = [" + ".join(terms[i:i+n]) for i in range(0, len(terms), n)]
+    return " \\\\ \n& \\quad + ".join(chunks)
+
 def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat, c_mat):
+    eq_counts = {str(i): 0 for i in range(1, 19)}
     lines = []
+    
+    # --- Preamble & Headers ---
     lines.append(r"\documentclass[11pt]{article}")
     lines.append(r"\usepackage{amsmath}")
     lines.append(r"\usepackage[margin=1in]{geometry}")
@@ -90,93 +96,197 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
     lines.append(r"\large\textbf{MPTRSP Base MIP Model}")
     lines.append(r"\end{center}")
     lines.append(r"\vspace{0.5cm}")
-    lines.append(r"\hrule")
-    lines.append(r"\vspace{0.5cm}")
     
-    # ---------------- Objective Function ----------------
-    lines.append(r"\subsection*{Objective Function (Cost Minimization)}")
-    lines.append(r"\textbf{Original Equation (1):}")
-    lines.append(r"\begin{equation*}")
-    lines.append(r"\text{Minimize } Z = \sum_{(i,j)\in A} \sum_{k \in K} \sum_{d \in D} c_{ij} x_{ijkd} + w^{cost} \sum_{i \in I'} w_i + ot^{cost} \sum_{k \in K} \sum_{d \in D} ot_{kd}")
-    lines.append(r"\end{equation*}")
+    # --- 1. Intro & Sets ---
+    lines.append(r"\section*{1. Sets Definition}")
+    lines.append(r"\begin{itemize}")
+    lines.append(rf"\item $D$ \textbf{{(Days):}} \{{{', '.join(days)}}}\}")
+    lines.append(rf"\item $M$ \textbf{{(Technicians):}} \{{{', '.join(techs)}}}\}")
+    lines.append(rf"\item $K$ \textbf{{(Teams):}} \{{{', '.join(teams)}}}\}")
+    lines.append(rf"\item $I'$ \textbf{{(Tasks):}} \{{{', '.join(tasks)}}}\}")
+    lines.append(rf"\item $I$ \textbf{{(All Nodes):}} \{{o, {', '.join(tasks)}, \bar{{o}}\}}")
+    lines.append(rf"\item $Q$ \textbf{{(Skills):}} {num_skills} domains")
+    lines.append(rf"\item $L$ \textbf{{(Proficiency):}} {num_levels} levels")
+    lines.append(r"\end{itemize}")
     
+    # --- 2. Parameters ---
+    lines.append(r"\section*{2. Parameters and Data}")
+    lines.append(r"\begin{itemize}")
+    lines.append(rf"\item \textbf{{Team Size ($\tau$):}} {team_size}")
+    lines.append(rf"\item \textbf{{Working hours $[e, f]$:}} $[{shift_start}, {shift_end}]$")
+    lines.append(rf"\item \textbf{{Max waiting time ($w^{{max}}$):}} {max_wait}")
+    lines.append(rf"\item \textbf{{Max overtime ($ot^{{max}}$):}} {max_ot}")
+    lines.append(rf"\item \textbf{{Waiting cost ($w^{{cost}}$):}} {cost_wait}")
+    lines.append(rf"\item \textbf{{Overtime cost ($ot^{{cost}}$):}} {cost_ot}")
+    lines.append(r"\end{itemize}")
+
+    # --- 3. Decision Variables ---
+    lines.append(r"\section*{3. Decision Variables}")
+    lines.append(r"\begin{itemize}")
+    lines.append(r"\item $z_{mkd} \in \{0,1\}$: 1 if tech $m$ assigned to team $k$ on day $d$.")
+    lines.append(r"\item $y_{ikd} \in \{0,1\}$: 1 if task $i$ assigned to team $k$ on day $d$.")
+    lines.append(r"\item $x_{ijkd} \in \{0,1\}$: 1 if team $k$ travels directly from $i$ to $j$ on day $d$.")
+    lines.append(r"\item $s_{ikd} \ge 0$: Start time of task $i$ by team $k$ on day $d$.")
+    lines.append(r"\item $w_{i} \ge 0$: Waiting time of task $i$.")
+    lines.append(r"\item $ot_{kd} \ge 0$: Overtime of team $k$ on day $d$.")
+    lines.append(r"\end{itemize}")
+
+    # --- Constraints Generation & Counting ---
+    unpacked_lines = []
+    unpacked_lines.append(r"\section*{5. Unpacked Mathematical Formulation}")
+    
+    # Obj (1)
+    eq_counts["1"] = 1
+    unpacked_lines.append(r"\subsection*{Objective Function (Cost Minimization)}")
+    unpacked_lines.append(r"\textbf{Original Equation (1):}")
+    unpacked_lines.append(r"Minimize $Z = \sum_{A} \sum_{K} \sum_{D} c_{ij} x_{ijkd} + w^{cost} \sum_{I'} w_i + ot^{cost} \sum_{K} \sum_{D} ot_{kd}$")
     obj_terms = []
     for i in nodes:
         for j in nodes:
-            if i != j and j != "o" and i != "\\bar{o}":
-                cost = c_mat[i][j]
-                if cost > 0:
-                    for k in teams:
-                        for d in days:
-                            obj_terms.append(f"{cost} X_{{{i},{j},{k},{d}}}")
+            if i != j and j != "o" and i != "\\bar{o}" and c_mat[i][j] > 0:
+                for k in teams:
+                    for d in days:
+                        obj_terms.append(f"{c_mat[i][j]} X_{{{i},{j},{k},{d}}}")
     for i in tasks:
         obj_terms.append(f"{cost_wait} w_{{{i}}}")
     for k in teams:
         for d in days:
             obj_terms.append(f"{cost_ot} ot_{{{k},{d}}}")
-            
-    obj_str = " + ".join(obj_terms)
-    # Splitting long string for LaTeX rendering
-    lines.append(r"\textbf{Unpacked:}")
-    lines.append(r"\begin{flalign*}")
-    lines.append(rf"& \text{{Minimize }} Z = {obj_str[:80]} \dots &\\")
-    lines.append(r"\end{flalign*}")
-    lines.append(r"\vspace{0.3cm}")
+    unpacked_lines.append(r"\\ \textbf{Unpacked:}")
+    unpacked_lines.append(r"\begin{flalign*}")
+    unpacked_lines.append(rf"& \text{{Min }} Z = {chunk_equation(obj_terms, 4)} &\\")
+    unpacked_lines.append(r"\end{flalign*}")
 
-    # ---------------- Constraint 2 ----------------
-    lines.append(r"\subsection*{Task Assignment Constraints}")
-    lines.append(r"\textbf{Original Equation (2):} Every task must be assigned to exactly one team/day.")
-    lines.append(r"\begin{equation*}")
-    lines.append(r"\sum_{k \in K} \sum_{d \in D} y_{ikd} = 1 \quad \forall i \in I'")
-    lines.append(r"\end{equation*}")
-    
-    lines.append(r"\textbf{Unpacked:}")
-    lines.append(r"\begin{itemize}")
+    # (2) Task Assignment
+    unpacked_lines.append(r"\subsection*{Task Assignment Constraints}")
+    unpacked_lines.append(r"\textbf{Original Equation (2):} Every task must be assigned to exactly one team/day.\\")
+    unpacked_lines.append(r"$\sum_{k \in K} \sum_{d \in D} y_{ikd} = 1 \quad \forall i \in I'$")
+    unpacked_lines.append(r"\begin{itemize}")
     for i in tasks:
         terms = [f"Y_{{{i},{k},{d}}}" for k in teams for d in days]
-        lines.append(rf"\item \textbf{{For Task {i}:}} ${' + '.join(terms)} = 1$")
-    lines.append(r"\end{itemize}")
-    lines.append(r"\vspace{0.3cm}")
+        unpacked_lines.append(rf"\item \textbf{{For Task {i}:}} ${' + '.join(terms)} = 1$")
+        eq_counts["2"] += 1
+    unpacked_lines.append(r"\end{itemize}")
 
-    # ---------------- Constraints 4 & 5 ----------------
-    lines.append(r"\subsection*{Routing Flow Constraints (Depot)}")
-    lines.append(r"\textbf{Original Equation (4):} The team must leave the start depot ($o$).")
-    lines.append(r"\begin{equation*}")
-    lines.append(r"\sum_{j: (o,j) \in A_d} x_{ojkd} = 1 \quad \forall k \in K, \forall d \in D")
-    lines.append(r"\end{equation*}")
-    
-    lines.append(r"\textbf{Unpacked:}")
-    lines.append(r"\begin{itemize}")
+    # (3) Routing Flow - Task Enter
+    unpacked_lines.append(r"\subsection*{Routing Flow Constraints}")
+    unpacked_lines.append(r"\textbf{Original Equation (3):} If a task is assigned, an arc must enter it.\\")
+    unpacked_lines.append(r"$\sum_{j \in A_d} x_{ijkd} = y_{ikd} \quad \forall i \in I', \forall k \in K, \forall d \in D$")
+    unpacked_lines.append(r"\begin{itemize}")
+    for i in tasks:
+        for k in teams:
+            for d in days:
+                terms = [f"X_{{{j},{i},{k},{d}}}" for j in nodes if j != i and j != "\\bar{o}"]
+                unpacked_lines.append(rf"\item \textbf{{Enter Task {i} (Team {k}, Day {d}):}} ${' + '.join(terms)} = Y_{{{i},{k},{d}}}$")
+                eq_counts["3"] += 1
+    unpacked_lines.append(r"\end{itemize}")
+
+    # (4) & (5) Depot
+    unpacked_lines.append(r"\textbf{Original Equations (4 \& 5):} Team must leave start depot ($o$) and arrive at end depot ($\bar{o}$).")
+    unpacked_lines.append(r"\begin{itemize}")
     for k in teams:
         for d in days:
             start_terms = [f"X_{{o,{j},{k},{d}}}" for j in tasks + ["\\bar{o}"]]
-            lines.append(rf"\item \textbf{{Team {k}, Day {d}:}} ${' + '.join(start_terms)} = 1$")
-    lines.append(r"\end{itemize}")
-    
-    # ---------------- Constraints 12 & 13 ----------------
-    lines.append(r"\subsection*{Workforce \& Team Building Constraints}")
-    lines.append(r"\textbf{Original Equation (12):} A technician can be assigned to at most one team per day.")
-    lines.append(r"\begin{equation*}")
-    lines.append(r"\sum_{k \in K} z_{mkd} \le 1 \quad \forall m \in M, \forall d \in D")
-    lines.append(r"\end{equation*}")
-    
-    lines.append(r"\textbf{Unpacked:}")
-    lines.append(r"\begin{itemize}")
+            unpacked_lines.append(rf"\item \textbf{{Leave Depot (Team {k}, Day {d}):}} ${' + '.join(start_terms)} = 1$")
+            eq_counts["4"] += 1
+            
+            end_terms = [f"X_{{{i},\\bar{{o}},{k},{d}}}" for i in ["o"] + tasks]
+            unpacked_lines.append(rf"\item \textbf{{Arrive Depot (Team {k}, Day {d}):}} ${' + '.join(end_terms)} = 1$")
+            eq_counts["5"] += 1
+    unpacked_lines.append(r"\end{itemize}")
+
+    # (6) Flow Conservation
+    unpacked_lines.append(r"\textbf{Original Equation (6):} Flow Conservation (entering equals leaving).\\")
+    unpacked_lines.append(r"$\sum_{i} x_{ihkd} - \sum_{j} x_{hjkd} = 0$")
+    unpacked_lines.append(r"\begin{itemize}")
+    for h in tasks:
+        for k in teams:
+            for d in days:
+                in_terms = [f"X_{{{i},{h},{k},{d}}}" for i in ["o"] + tasks if i != h]
+                out_terms = [f"X_{{{h},{j},{k},{d}}}" for j in tasks + ["\\bar{o}"] if j != h]
+                unpacked_lines.append(rf"\item \textbf{{Task {h} (Team {k}, Day {d}):}} $({' + '.join(in_terms)}) - ({' + '.join(out_terms)}) = 0$")
+                eq_counts["6"] += 1
+    unpacked_lines.append(r"\end{itemize}")
+
+    # (7) Time sequencing
+    unpacked_lines.append(r"\subsection*{Scheduling \& Time Windows Constraints}")
+    unpacked_lines.append(r"\textbf{Original Equation (7):} Start time relation between consecutive tasks.\\")
+    unpacked_lines.append(r"$x_{ijkd}(s_{ikd} + t_{ij} - s_{jkd}) \le 0$")
+    unpacked_lines.append(r"\begin{itemize}")
+    for i in tasks:
+        for j in tasks:
+            if i != j:
+                for k in teams:
+                    for d in days:
+                        t = t_mat[i][j]
+                        unpacked_lines.append(rf"\item $X_{{{i},{j},{k},{d}}}(s_{{{i},{k},{d}}} + {t} - s_{{{j},{k},{d}}}) \le 0$")
+                        eq_counts["7"] += 1
+    unpacked_lines.append(r"\end{itemize}")
+
+    # (8) Earliest start
+    unpacked_lines.append(r"\textbf{Original Equation (8):} Task cannot start before its earliest time ($a_{id}$).")
+    unpacked_lines.append(r"\begin{itemize}")
+    for i in tasks:
+        for k in teams:
+            for d in days:
+                a_i = task_dict[i]["a"]
+                unpacked_lines.append(rf"\item \textbf{{Task {i}:}} $Y_{{{i},{k},{d}}}({a_i} - s_{{{i},{k},{d}}}) \le 0$")
+                eq_counts["8"] += 1
+    unpacked_lines.append(r"\end{itemize}")
+
+    # (9) Latest start & Wait
+    unpacked_lines.append(r"\textbf{Original Equation (9):} Waiting time if starting after latest time ($b_{id}$).")
+    unpacked_lines.append(r"\begin{itemize}")
+    for i in tasks:
+        for k in teams:
+            for d in days:
+                b_i = task_dict[i]["b"]
+                unpacked_lines.append(rf"\item \textbf{{Task {i}:}} $Y_{{{i},{k},{d}}}(s_{{{i},{k},{d}}} - {b_i} - w_{i}) \le 0$")
+                eq_counts["9"] += 1
+    unpacked_lines.append(r"\end{itemize}")
+
+    # (10) First task start time
+    unpacked_lines.append(r"\textbf{Original Equation (10):} First task cannot start before reaching it from depot.")
+    unpacked_lines.append(r"\begin{itemize}")
+    for j in tasks:
+        for k in teams:
+            for d in days:
+                t = t_mat["o"][j]
+                unpacked_lines.append(rf"\item $X_{{o,{j},{k},{d}}}(s_{{{j},{k},{d}}} - {shift_start} - {t}) \ge 0$")
+                eq_counts["10"] += 1
+    unpacked_lines.append(r"\end{itemize}")
+
+    # (11) Overtime
+    unpacked_lines.append(r"\textbf{Original Equation (11):} Overtime calculation if returning to depot after closing time ($f$).")
+    unpacked_lines.append(r"\begin{itemize}")
+    for i in tasks:
+        for k in teams:
+            for d in days:
+                t = t_mat[i]["\\bar{o}"]
+                unpacked_lines.append(rf"\item $X_{{{i},\bar{{o}},{k},{d}}}(s_{{{i},{k},{d}}} + {t} - {shift_end} - ot_{{{k},{d}}}) \le 0$")
+                eq_counts["11"] += 1
+    unpacked_lines.append(r"\end{itemize}")
+
+    # (12 & 13) Team building
+    unpacked_lines.append(r"\subsection*{Workforce \& Team Building Constraints}")
+    unpacked_lines.append(r"\textbf{Original Eq (12 \& 13):} Tech max one team per day. Team has $\tau$ techs.")
+    unpacked_lines.append(r"\begin{itemize}")
     for m in techs:
         for d in days:
             terms = [f"Z_{{{m},{k},{d}}}" for k in teams]
-            lines.append(rf"\item \textbf{{Tech {m}, Day {d}:}} ${' + '.join(terms)} \le 1$")
-    lines.append(r"\end{itemize}")
+            unpacked_lines.append(rf"\item \textbf{{Tech {m}, Day {d}:}} ${' + '.join(terms)} \le 1$")
+            eq_counts["12"] += 1
+    for k in teams:
+        for d in days:
+            terms = [f"Z_{{{m},{k},{d}}}" for m in techs]
+            unpacked_lines.append(rf"\item \textbf{{Team {k}, Day {d}:}} ${' + '.join(terms)} = {team_size}$")
+            eq_counts["13"] += 1
+    unpacked_lines.append(r"\end{itemize}")
 
-    # ---------------- Constraint 14 ----------------
-    lines.append(r"\subsection*{Constraint (14): Skill Requirements}")
-    lines.append(r"\textbf{Original Equation (14):} The team must possess the skills required by the task.")
-    lines.append(r"\begin{equation*}")
-    lines.append(r"v_{iql} y_{ikd} \le \sum_{m \in M} g_{mql} z_{mkd} \quad \forall i, q, l, k, d")
-    lines.append(r"\end{equation*}")
-    
-    lines.append(r"\textbf{Unpacked:}")
-    lines.append(r"\begin{itemize}")
+    # (14) Skills
+    unpacked_lines.append(r"\subsection*{Skill Requirements}")
+    unpacked_lines.append(r"\textbf{Original Equation (14):} Team must possess skills required by the task.")
+    unpacked_lines.append(r"\begin{itemize}")
     for i in tasks:
         for q in range(1, num_skills + 1):
             for l in range(1, num_levels + 1):
@@ -184,40 +294,68 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
                 for k in teams:
                     for d in days:
                         tech_terms = [f"{tech_dict[m]['g'][(q, l)]} \cdot Z_{{{m},{k},{d}}}" for m in techs]
-                        lines.append(rf"\item \textbf{{Task {i} (Skill {q}, Lvl {l}):}} ${req} \cdot Y_{{{i},{k},{d}}} \le {' + '.join(tech_terms)}$")
-    lines.append(r"\end{itemize}")
-    
+                        unpacked_lines.append(rf"\item \textbf{{Task {i} (S{q}, L{l}):}} ${req} \cdot Y_{{{i},{k},{d}}} \le {' + '.join(tech_terms)}$")
+                        eq_counts["14"] += 1
+    unpacked_lines.append(r"\end{itemize}")
+
+    # Bounds (15, 16, 17, 18)
+    unpacked_lines.append(r"\subsection*{Variable Bounds}")
+    unpacked_lines.append(r"\textbf{Original Eq (15-18):} Limits on waiting, overtime, and binary domains.")
+    unpacked_lines.append(r"\begin{itemize}")
+    for i in tasks:
+        unpacked_lines.append(rf"\item $0 \le w_{{{i}}} \le {max_wait}$")
+        eq_counts["15"] += 1
+        unpacked_lines.append(rf"\item $s_{{{i},k,d}} \ge 0$")
+        eq_counts["17"] += 1
+    for k in teams:
+        for d in days:
+            unpacked_lines.append(rf"\item $0 \le ot_{{{k},{d}}} \le {max_ot}$")
+            eq_counts["16"] += 1
+    unpacked_lines.append(r"\item $X, Y, Z \in \{0, 1\}$")
+    eq_counts["18"] = 1
+    unpacked_lines.append(r"\end{itemize}")
+
+    # --- 4. Equation Summary Table ---
+    lines.append(r"\section*{4. Equations Generated Summary}")
+    lines.append(r"The dimensions specified above generated the following number of equations per constraint block:")
+    lines.append(r"\begin{center}\begin{tabular}{|c|c|}")
+    lines.append(r"\hline \textbf{Constraint} & \textbf{Count} \\ \hline")
+    total_eqs = 0
+    for eq_num, count in eq_counts.items():
+        lines.append(rf"Eq ({eq_num}) & {count} \\ \hline")
+        total_eqs += count
+    lines.append(rf"\textbf{{Total}} & \textbf{{{total_eqs}}} \\ \hline")
+    lines.append(r"\end{tabular}\end{center}")
+    lines.append(r"\newpage")
+
+    # Combine all parts
+    lines.extend(unpacked_lines)
     lines.append(r"\end{document}")
+    
     return "\n".join(lines)
 
 # ==========================================
-# 4. Compilation & UI Output
+# 4. Compilation & Output
 # ==========================================
 if st.button("🚀 Generate & Unpack Model"):
-    with st.spinner("Generating data and compiling LaTeX into PDF... This may take a few seconds."):
+    with st.spinner("Generating data and compiling PDF..."):
         
-        # 1. Generate Data
         tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat, c_mat = generate_data()
-        
-        # 2. Generate LaTeX string
         latex_code = generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat, c_mat)
         
-        # 3. Save LaTeX to file
         with open("model.tex", "w") as f:
             f.write(latex_code)
             
-        # 4. Compile PDF using pdflatex (Linux Subprocess)
         pdf_success = False
         try:
-            # Runs pdflatex twice to ensure formatting/margins are correct
             subprocess.run(["pdflatex", "-interaction=nonstopmode", "model.tex"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             pdf_success = True
-        except Exception as e:
-            st.warning("⚠️ Could not compile PDF automatically. This usually means `packages.txt` is missing texlive-latex-base. You can still download the .tex file!")
+        except Exception:
+            st.warning("⚠️ Could not compile PDF on server (needs packages.txt). You can download the .tex file!")
             
         st.success("✅ Process Complete!")
         
-        # --- Prepare Excel Data ---
+        # Prepare Excel
         df_tasks = pd.DataFrame.from_dict(task_dict, orient='index')
         df_techs = pd.DataFrame.from_dict(tech_dict, orient='index')
         df_t = pd.DataFrame(t_mat)
@@ -230,37 +368,12 @@ if st.button("🚀 Generate & Unpack Model"):
             df_t.to_excel(writer, sheet_name='Travel_Times')
             df_c.to_excel(writer, sheet_name='Travel_Costs')
             
-        # UI Previews
-        st.subheader("📝 LaTeX Preview (Snippet)")
-        st.code(latex_code[:1500] + "\n\n... (Code truncated for preview)", language="latex")
-        
-        # Download Buttons
         col1, col2, col3 = st.columns(3)
-        
         with col1:
-            st.download_button(
-                label="📥 Download Excel Data (.xlsx)",
-                data=buffer.getvalue(),
-                file_name="MPTRSP_Data.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-            
+            st.download_button(label="📥 Download Excel Data", data=buffer.getvalue(), file_name="MPTRSP_Data.xlsx")
         with col2:
-            st.download_button(
-                label="📥 Download LaTeX Source (.tex)",
-                data=latex_code,
-                file_name="Unpacked_MPTRSP.tex",
-                mime="text/plain"
-            )
-            
+            st.download_button(label="📥 Download LaTeX Source", data=latex_code, file_name="Unpacked_MPTRSP.tex")
         with col3:
             if pdf_success and os.path.exists("model.pdf"):
                 with open("model.pdf", "rb") as pdf_file:
-                    st.download_button(
-                        label="📄 Download PDF Report (.pdf)",
-                        data=pdf_file,
-                        file_name="Unpacked_MPTRSP.pdf",
-                        mime="application/pdf"
-                    )
-            else:
-                st.error("PDF generation failed on server.")
+                    st.download_button(label="📄 Download PDF Report", data=pdf_file, file_name="Unpacked_MPTRSP.pdf", mime="application/pdf")
