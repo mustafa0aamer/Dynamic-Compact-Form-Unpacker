@@ -105,7 +105,6 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
     
     lines.append(r"\section*{1. Sets Definition}")
     lines.append(r"\begin{itemize}")
-    # Wrapped entirely in math mode for perfect rendering
     lines.append(rf"\item \textbf{{Days ($D$):}} $\{{ {d_str} \}}$")
     lines.append(rf"\item \textbf{{Technicians ($M$):}} $\{{ {m_str} \}}$")
     lines.append(rf"\item \textbf{{Teams ($K$):}} $\{{ {k_str} \}}$")
@@ -145,7 +144,10 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
     eq_counts["1"] = 1
     unpacked_lines.append(r"\subsection*{Objective Function (Cost Minimization)}")
     unpacked_lines.append(r"\textbf{Original Equation (1):}")
-    unpacked_lines.append(r"Minimize $Z = \sum_{A} \sum_{K} \sum_{D} c_{ij} x_{ijkd} + w^{cost} \sum_{I'} w_i + ot^{cost} \sum_{K} \sum_{D} ot_{kd}$")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"\text{Minimize } Z = \sum_{(i,j) \in A} \sum_{k \in K} \sum_{d \in D} c_{ij} x_{ijkd} + w^{cost} \sum_{i \in I'} w_i + ot^{cost} \sum_{k \in K} \sum_{d \in D} ot_{kd}")
+    unpacked_lines.append(r"\end{equation*}")
+    
     obj_terms = []
     for i in nodes:
         for j in nodes:
@@ -158,15 +160,19 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
     for k in teams:
         for d in days:
             obj_terms.append(f"{cost_ot} ot_{{{k},{d}}}")
-    unpacked_lines.append(r"\\ \textbf{Unpacked:}")
+    unpacked_lines.append(r"\textbf{Unpacked:}")
     unpacked_lines.append(r"\begin{flalign*}")
     unpacked_lines.append(rf"& \text{{Min }} Z = {chunk_equation(obj_terms, 4)} &\\")
     unpacked_lines.append(r"\end{flalign*}")
 
     # (2) Task Assignment
     unpacked_lines.append(r"\subsection*{Task Assignment Constraints}")
-    unpacked_lines.append(r"\textbf{Original Equation (2):} Every task must be assigned to exactly one team/day.\\")
-    unpacked_lines.append(r"$\sum_{k \in K} \sum_{d \in D} y_{ikd} = 1 \quad \forall i \in I'$")
+    unpacked_lines.append(r"\textbf{Original Equation (2):} Every task must be assigned to exactly one team/day.")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"\sum_{k \in K} \sum_{d \in D} y_{ikd} = 1 \quad \forall i \in I'")
+    unpacked_lines.append(r"\end{equation*}")
+    
+    unpacked_lines.append(r"\textbf{Unpacked:}")
     unpacked_lines.append(r"\begin{itemize}")
     for i in tasks:
         terms = [f"Y_{{{i},{k},{d}}}" for k in teams for d in days]
@@ -176,8 +182,12 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
 
     # (3) Routing Flow - Task Enter
     unpacked_lines.append(r"\subsection*{Routing Flow Constraints}")
-    unpacked_lines.append(r"\textbf{Original Equation (3):} If a task is assigned, an arc must enter it.\\")
-    unpacked_lines.append(r"$\sum_{j \in A_d} x_{ijkd} = y_{ikd} \quad \forall i \in I', \forall k \in K, \forall d \in D$")
+    unpacked_lines.append(r"\textbf{Original Equation (3):} If a task is assigned, an arc must enter it.")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"\sum_{j \in A_d} x_{ijkd} = y_{ikd} \quad \forall i \in I', \forall k \in K, \forall d \in D")
+    unpacked_lines.append(r"\end{equation*}")
+    
+    unpacked_lines.append(r"\textbf{Unpacked:}")
     unpacked_lines.append(r"\begin{itemize}")
     for i in tasks:
         for k in teams:
@@ -189,6 +199,14 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
 
     # (4) & (5) Depot
     unpacked_lines.append(r"\textbf{Original Equations (4 \& 5):} Team must leave start depot ($o$) and arrive at end depot ($\bar{o}$).")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"\sum_{j:(o,j) \in A_d} x_{ojkd} = 1 \quad \forall k \in K, \forall d \in D")
+    unpacked_lines.append(r"\end{equation*}")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"\sum_{i:(i,\bar{o}) \in A_d} x_{i\bar{o}kd} = 1 \quad \forall k \in K, \forall d \in D")
+    unpacked_lines.append(r"\end{equation*}")
+    
+    unpacked_lines.append(r"\textbf{Unpacked:}")
     unpacked_lines.append(r"\begin{itemize}")
     for k in teams:
         for d in days:
@@ -202,8 +220,12 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
     unpacked_lines.append(r"\end{itemize}")
 
     # (6) Flow Conservation
-    unpacked_lines.append(r"\textbf{Original Equation (6):} Flow Conservation (entering equals leaving).\\")
-    unpacked_lines.append(r"$\sum_{i} x_{ihkd} - \sum_{j} x_{hjkd} = 0$")
+    unpacked_lines.append(r"\textbf{Original Equation (6):} Flow Conservation (entering equals leaving).")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"\sum_{i:(i,h) \in A_d} x_{ihkd} - \sum_{j:(h,j) \in A_d} x_{hjkd} = 0 \quad \forall h \in I', \forall k \in K, \forall d \in D")
+    unpacked_lines.append(r"\end{equation*}")
+    
+    unpacked_lines.append(r"\textbf{Unpacked:}")
     unpacked_lines.append(r"\begin{itemize}")
     for h in tasks:
         for k in teams:
@@ -216,8 +238,12 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
 
     # (7) Time sequencing
     unpacked_lines.append(r"\subsection*{Scheduling \& Time Windows Constraints}")
-    unpacked_lines.append(r"\textbf{Original Equation (7):} Start time relation between consecutive tasks.\\")
-    unpacked_lines.append(r"$x_{ijkd}(s_{ikd} + t_{ij} - s_{jkd}) \le 0$")
+    unpacked_lines.append(r"\textbf{Original Equation (7):} Start time relation between consecutive tasks.")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"x_{ijkd}(s_{ikd} + t_{ij} - s_{jkd}) \le 0 \quad \forall i, j \in I, \forall k \in K, \forall d \in D")
+    unpacked_lines.append(r"\end{equation*}")
+    
+    unpacked_lines.append(r"\textbf{Unpacked:}")
     unpacked_lines.append(r"\begin{itemize}")
     for i in tasks:
         for j in tasks:
@@ -231,6 +257,11 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
 
     # (8) Earliest start
     unpacked_lines.append(r"\textbf{Original Equation (8):} Task cannot start before its earliest time ($a_{id}$).")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"y_{ikd}(a_{id} - s_{ikd}) \le 0 \quad \forall i \in I', \forall k \in K, \forall d \in D")
+    unpacked_lines.append(r"\end{equation*}")
+    
+    unpacked_lines.append(r"\textbf{Unpacked:}")
     unpacked_lines.append(r"\begin{itemize}")
     for i in tasks:
         for k in teams:
@@ -242,6 +273,11 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
 
     # (9) Latest start & Wait
     unpacked_lines.append(r"\textbf{Original Equation (9):} Waiting time if starting after latest time ($b_{id}$).")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"y_{ikd}(s_{ikd} - b_{id} - w_i) \le 0 \quad \forall i \in I', \forall k \in K, \forall d \in D")
+    unpacked_lines.append(r"\end{equation*}")
+    
+    unpacked_lines.append(r"\textbf{Unpacked:}")
     unpacked_lines.append(r"\begin{itemize}")
     for i in tasks:
         for k in teams:
@@ -253,6 +289,11 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
 
     # (10) First task start time
     unpacked_lines.append(r"\textbf{Original Equation (10):} First task cannot start before reaching it from depot.")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"x_{ojkd}(s_{jkd} - e - t_{oj}) \ge 0 \quad \forall j \in I', \forall k \in K, \forall d \in D")
+    unpacked_lines.append(r"\end{equation*}")
+    
+    unpacked_lines.append(r"\textbf{Unpacked:}")
     unpacked_lines.append(r"\begin{itemize}")
     for j in tasks:
         for k in teams:
@@ -264,6 +305,11 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
 
     # (11) Overtime
     unpacked_lines.append(r"\textbf{Original Equation (11):} Overtime calculation if returning to depot after closing time ($f$).")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"x_{i\bar{o}kd}(s_{ikd} + t_{i\bar{o}} - f - ot_{kd}) \le 0 \quad \forall i \in I', \forall k \in K, \forall d \in D")
+    unpacked_lines.append(r"\end{equation*}")
+    
+    unpacked_lines.append(r"\textbf{Unpacked:}")
     unpacked_lines.append(r"\begin{itemize}")
     for i in tasks:
         for k in teams:
@@ -276,6 +322,14 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
     # (12 & 13) Team building
     unpacked_lines.append(r"\subsection*{Workforce \& Team Building Constraints}")
     unpacked_lines.append(r"\textbf{Original Eq (12 \& 13):} Tech max one team per day. Team has $\tau$ techs.")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"\sum_{k \in K} z_{mkd} \le 1 \quad \forall m \in M, \forall d \in D")
+    unpacked_lines.append(r"\end{equation*}")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"\sum_{m \in M} z_{mkd} = \tau \quad \forall k \in K, \forall d \in D")
+    unpacked_lines.append(r"\end{equation*}")
+    
+    unpacked_lines.append(r"\textbf{Unpacked:}")
     unpacked_lines.append(r"\begin{itemize}")
     for m in techs:
         for d in days:
@@ -292,6 +346,11 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
     # (14) Skills
     unpacked_lines.append(r"\subsection*{Skill Requirements}")
     unpacked_lines.append(r"\textbf{Original Equation (14):} Team must possess skills required by the task.")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"v_{iql} y_{ikd} \le \sum_{m \in M} g_{mql} z_{mkd} \quad \forall i \in I', \forall q \in Q, \forall l \in L, \forall k \in K, \forall d \in D")
+    unpacked_lines.append(r"\end{equation*}")
+    
+    unpacked_lines.append(r"\textbf{Unpacked:}")
     unpacked_lines.append(r"\begin{itemize}")
     for i in tasks:
         for q in range(1, num_skills + 1):
@@ -307,6 +366,20 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
     # Bounds (15, 16, 17, 18)
     unpacked_lines.append(r"\subsection*{Variable Bounds}")
     unpacked_lines.append(r"\textbf{Original Eq (15-18):} Limits on waiting, overtime, and binary domains.")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"0 \le w_i \le w^{max} \quad \forall i \in I'")
+    unpacked_lines.append(r"\end{equation*}")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"0 \le ot_{kd} \le ot^{max} \quad \forall k \in K, \forall d \in D")
+    unpacked_lines.append(r"\end{equation*}")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"s_{ikd} \ge 0 \quad \forall i \in I, \forall k \in K, \forall d \in D")
+    unpacked_lines.append(r"\end{equation*}")
+    unpacked_lines.append(r"\begin{equation*}")
+    unpacked_lines.append(r"x_{ijkd}, y_{ikd}, z_{mkd} \in \{0, 1\} \quad \forall i, j \in I, \forall m \in M, \forall k \in K, \forall d \in D")
+    unpacked_lines.append(r"\end{equation*}")
+    
+    unpacked_lines.append(r"\textbf{Unpacked:}")
     unpacked_lines.append(r"\begin{itemize}")
     for i in tasks:
         unpacked_lines.append(rf"\item $0 \le w_{{{i}}} \le {max_wait}$")
