@@ -98,7 +98,6 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
     lines.append(r"\vspace{0.5cm}")
     
     # --- 1. Intro & Sets ---
-    # --- 1. Intro & Sets ---
     d_str = ', '.join(days)
     m_str = ', '.join(techs)
     k_str = ', '.join(teams)
@@ -106,13 +105,14 @@ def generate_latex(tasks, techs, teams, days, nodes, task_dict, tech_dict, t_mat
     
     lines.append(r"\section*{1. Sets Definition}")
     lines.append(r"\begin{itemize}")
-    lines.append(rf"\item $D$ \textbf{{(Days):}} \{{ {d_str} \}}")
-    lines.append(rf"\item $M$ \textbf{{(Technicians):}} \{{ {m_str} \}}")
-    lines.append(rf"\item $K$ \textbf{{(Teams):}} \{{ {k_str} \}}")
-    lines.append(rf"\item $I'$ \textbf{{(Tasks):}} \{{ {i_str} \}}")
-    lines.append(rf"\item $I$ \textbf{{(All Nodes):}} \{{ o, {i_str}, \bar{{o}} \}}")
-    lines.append(rf"\item $Q$ \textbf{{(Skills):}} {num_skills} domains")
-    lines.append(rf"\item $L$ \textbf{{(Proficiency):}} {num_levels} levels")
+    # Wrapped entirely in math mode for perfect rendering
+    lines.append(rf"\item \textbf{{Days ($D$):}} $\{{ {d_str} \}}$")
+    lines.append(rf"\item \textbf{{Technicians ($M$):}} $\{{ {m_str} \}}$")
+    lines.append(rf"\item \textbf{{Teams ($K$):}} $\{{ {k_str} \}}$")
+    lines.append(rf"\item \textbf{{Tasks ($I'$):}} $\{{ {i_str} \}}$")
+    lines.append(rf"\item \textbf{{All Nodes ($I$):}} $\{{ o, {i_str}, \bar{{o}} \}}$")
+    lines.append(rf"\item \textbf{{Skills ($Q$):}} {num_skills} domains")
+    lines.append(rf"\item \textbf{{Proficiency ($L$):}} {num_levels} levels")
     lines.append(r"\end{itemize}")
     
     # --- 2. Parameters ---
@@ -354,13 +354,26 @@ if st.button("🚀 Generate & Unpack Model"):
             
         pdf_success = False
         try:
-            subprocess.run(["pdflatex", "-interaction=nonstopmode", "model.tex"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            # Capture the output so we can print the error if it fails
+            result = subprocess.run(
+                ["pdflatex", "-interaction=nonstopmode", "model.tex"], 
+                check=True, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE,
+                text=True
+            )
             pdf_success = True
-        except Exception:
-            st.warning("⚠️ Could not compile PDF on server (needs packages.txt). You can download the .tex file!")
+            st.success("✅ PDF Compiled Successfully!")
             
-        st.success("✅ Process Complete!")
-        
+        except subprocess.CalledProcessError as e:
+            st.error("❌ LaTeX Compilation Failed! There is a syntax error in the math.")
+            with st.expander("Show Detailed Error Log"):
+                st.code(e.stdout[-1500:], language="text") # Shows the last 1500 characters of the latex error
+                
+        except FileNotFoundError:
+            st.error("❌ `pdflatex` is not installed on this server.")
+            st.info("💡 To fix this: Ensure you have a file named exactly `packages.txt` in your GitHub repository containing: `texlive-latex-base texlive-fonts-recommended texlive-latex-extra`. Then, click 'Reboot App' in the Streamlit cloud settings.")
+            
         # Prepare Excel
         df_tasks = pd.DataFrame.from_dict(task_dict, orient='index')
         df_techs = pd.DataFrame.from_dict(tech_dict, orient='index')
