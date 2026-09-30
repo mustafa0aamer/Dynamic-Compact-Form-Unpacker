@@ -10,7 +10,7 @@ import subprocess
 # ==========================================
 st.set_page_config(page_title="MPTRSP Model Generator", layout="wide")
 st.title("⚙️ MPTRSP: Ultimate Equation Unpacker")
-st.markdown("Generates a complete academic report matching your manual PDF, including all 18 constraints, sets, and equation counts.")
+st.markdown("Generates a complete academic report, including all 18 constraints, sets, and equation counts.")
 
 # Sidebar - Dimensions
 st.sidebar.header("1. Problem Dimensions")
