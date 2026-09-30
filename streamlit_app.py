@@ -11,7 +11,7 @@ import subprocess
 st.set_page_config(page_title="MPTRSP Model Generator", layout="wide")
 st.title("⚙️ MPTRSP: Ultimate Equation Unpacker")
 st.markdown("Generates a complete academic report, including all 18 constraints, sets, and equation counts.")
-
+st.warning("Please open the side bar to assign dimensions and parameters", icon="⏭️")
 # Sidebar - Dimensions
 st.sidebar.header("1. Problem Dimensions")
 num_days = st.sidebar.number_input("Days |D|", min_value=1, value=1, step=1)
